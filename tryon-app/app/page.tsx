@@ -2,11 +2,12 @@
 
 import { useCallback, useRef, useState } from "react";
 
-const WEBHOOK_URL =
-  "https://achiarel.app.n8n.cloud/webhook/2eaf85ec-55da-457e-a597-48814aa71dc3";
+// Posts to our own server route, which proxies to the n8n webhook. The
+// webhook URL is a server-only secret and is never exposed to the browser.
+const GENERATE_ENDPOINT = "/api/generate";
 
-const ACCEPTED_TYPES = ["image/jpeg", "image/webp"];
-const INVALID_TYPE_MESSAGE = "Please upload JPEG or WebP only.";
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const INVALID_TYPE_MESSAGE = "Please upload JPEG, PNG, or WebP only.";
 const GENERIC_ERROR = "Failed to generate image. Please try again.";
 
 type Slot = {
@@ -61,7 +62,7 @@ export default function Home() {
       formData.append("image1", image1.file!);
       formData.append("image2", image2.file!);
 
-      const response = await fetch(WEBHOOK_URL, {
+      const response = await fetch(GENERATE_ENDPOINT, {
         method: "POST",
         body: formData,
       });
@@ -113,14 +114,14 @@ export default function Home() {
           <UploadCard
             index={1}
             label="The Person"
-            hint="JPEG or WebP"
+            hint="JPEG, PNG, WebP"
             slot={image1}
             onSelect={(files) => handleSelect(image1, setImage1, files)}
           />
           <UploadCard
             index={2}
             label="The Garment"
-            hint="JPEG or WebP"
+            hint="JPEG, PNG, WebP"
             slot={image2}
             onSelect={(files) => handleSelect(image2, setImage2, files)}
           />
@@ -254,7 +255,7 @@ function UploadCard({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/webp,.jpg,.jpeg,.webp"
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
         className="hidden"
         onChange={(e) => onSelect(e.target.files)}
       />
