@@ -1,0 +1,49 @@
+Product Requirements Document (PRD)
+Project Name: AI Image Synthesis App (e.g., Virtual Try-On)
+Document Version: 1.0
+1. Product Overview
+Objective:
+To build an application that allows users to upload two separate images (e.g., a person and a piece of clothing), process them into a single blended image via a backend AI workflow, and display the final result to the user.
+Core Mechanism:
+The frontend app acts as an interface to collect the images and communicates directly via HTTP POST with an n8n webhook, which handles the actual image generation logic and returns a binary file to be displayed.
+2. User Flow
+Landing: The user opens the app and sees two empty image upload slots and an inactive "Generate" button.
+Upload:
+User uploads Image 1 (e.g., the person).
+User uploads Image 2 (e.g., the clothing).
+Trigger: Once both images are uploaded, the "Generate" button becomes active. The user clicks "Generate".
+Processing state: The app displays a loading indicator while waiting for the backend.
+Display result: The app receives the binary image file back from the n8n webhook and displays it in the designated output field.
+3. UI / UX Requirements
+The specific visual styling (colors, typography, corner radius, etc.) must match the provided screenshot. Structurally, the UI must include the following components:
+Input Field 1 (image1): A dropzone or upload button for the primary image (e.g., the person).
+Input Field 2 (image2): A dropzone or upload button for the secondary image (e.g., the garment).
+Call-to-Action (CTA) Button: A button to trigger the API request (e.g., "Generate Image").
+Loading State: A visual indicator (spinner, progress bar, or skeleton loader) that appears while waiting for the n8n webhook response.
+Output Field: An image container that displays the final combined image returned by the webhook. Should include an option to download/save the generated image.
+4. Technical Specifications
+4.1. Supported File Formats
+Inputs: JPEG (image/jpeg) or WebP (image/webp).
+Output: Binary image file (JPEG, PNG, or WebP) returned by the webhook.
+4.2. API Integration Requirements
+The application must send the images to the designated n8n webhook using a POST request.
+Endpoint URL: https://achiarel.app.n8n.cloud/webhook/2eaf85ec-55da-457e-a597-48814aa71dc3
+HTTP Method: POST
+Content-Type: multipart/form-data (Recommended for sending binary files natively).
+Payload Structure:
+The form data must contain exactly two keys containing the binary files:
+image1: Binary file (JPEG/WebP)
+image2: Binary file (JPEG/WebP)
+Response Handling:
+The webhook will return a binary file directly.
+The frontend must parse this binary response (e.g., using URL.createObjectURL(blob) in JavaScript) and map it to the src attribute of the output image field.
+5. Error Handling & Edge Cases
+The app must handle the following scenarios gracefully:
+Missing Inputs: The user tries to click "Generate" before both image1 and image2 are uploaded. (Action: Disable the button or show a warning prompt).
+Invalid File Type: The user uploads a PDF or unsupported file. (Action: Reject the upload immediately with a tooltip: "Please upload JPEG or WebP only.")
+API Timeout / Webhook Failure: The n8n webhook takes too long to respond or returns a 500 error. (Action: Stop the loading spinner and display an error message: "Failed to generate image. Please try again.")
+6. Development Milestones
+Phase 1: Setup UI mockup matching the provided screenshot (two input fields, one output field).
+Phase 2: Implement file upload logic, file validation (JPEG/WebP), and state management.
+Phase 3: Integrate the n8n webhook (POST request with multipart form data) and handle the binary response.
+Phase 4: Add loading states, error handling, and final polish.
