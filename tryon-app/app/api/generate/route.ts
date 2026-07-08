@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 // This route runs on the server only. It proxies the upload to the n8n
 // webhook so the webhook URL stays a server-side secret and never reaches
@@ -40,6 +41,15 @@ function validateImage(value: FormDataEntryValue | null, name: string): File | s
 }
 
 export async function POST(request: Request) {
+  // Only signed-in users may generate images. The proxy also gates this
+  // path, but the route validates auth itself — like file validation, the
+  // server-side check here is the authoritative one.
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  if (!claims?.claims) {
+    return fail(401, "Please log in.");
+  }
+
   const webhookUrl = process.env.WEBHOOK_URL;
   if (!webhookUrl) {
     // Misconfiguration — log server-side, stay vague to the client.

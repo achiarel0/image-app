@@ -2,6 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 
+import AuthNav from "./components/AuthNav";
+
 // Posts to our own server route, which proxies to the n8n webhook. The
 // webhook URL is a server-only secret and is never exposed to the browser.
 const GENERATE_ENDPOINT = "/api/generate";
@@ -90,10 +92,14 @@ export default function Home() {
 
       {/* Header */}
       <header className="border-b border-neutral-200">
-        <div className="mx-auto flex max-w-5xl items-center justify-center px-6 py-6">
+        <div className="mx-auto grid max-w-5xl grid-cols-[1fr_auto_1fr] items-center px-6 py-6">
+          <div />
           <h1 className="text-2xl font-semibold uppercase tracking-[0.35em]">
             Atelier
           </h1>
+          <div className="flex justify-end">
+            <AuthNav />
+          </div>
         </div>
       </header>
 

@@ -24,10 +24,12 @@ free port you like.
 
 ### Environment variables
 
-| Variable           | Required | Description                                                              |
-| ------------------ | -------- | ------------------------------------------------------------------------ |
-| `WEBHOOK_URL`      | Yes      | The n8n webhook that performs image synthesis. **Server-only** secret.   |
-| `MAX_UPLOAD_BYTES` | No       | Max bytes per uploaded image. Defaults to `10485760` (10 MB).            |
+| Variable                                | Required | Description                                                              |
+| --------------------------------------- | -------- | ------------------------------------------------------------------------ |
+| `WEBHOOK_URL`                            | Yes      | The n8n webhook that performs image synthesis. **Server-only** secret.   |
+| `MAX_UPLOAD_BYTES`                       | No       | Max bytes per uploaded image. Defaults to `10485760` (10 MB).            |
+| `NEXT_PUBLIC_SUPABASE_URL`               | Yes      | Supabase project URL (safe to expose to the browser).                    |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`   | Yes      | Supabase publishable key (`sb_publishable_...`, safe to expose).         |
 
 `WEBHOOK_URL` has **no** `NEXT_PUBLIC_` prefix on purpose — that keeps it on the server and
 out of the browser bundle. Set it locally in `.env.local` (gitignored) and, for production,
@@ -67,6 +69,23 @@ n8n webhook  →  returns a binary image  →  streamed back to the browser  →
   shown in a plain `<img>` (with a download link). `next/image` is intentionally not used —
   it doesn't support `blob:` URLs.
 
+## Accounts (Supabase auth)
+
+Login is **required** — powered by [Supabase Auth](https://supabase.com/docs/guides/auth)
+with cookie-based sessions (`@supabase/ssr`):
+
+- `/signup` — create an account with **name, email, and password** (the name is stored in
+  the auth user's metadata; there are no custom database tables).
+- `/login` — sign in with email + password. The header shows the signed-in user's name and
+  a sign-out button.
+- `proxy.ts` (Next.js 16's renamed middleware) refreshes the session cookie on every
+  request and redirects logged-out visitors to `/login` (only `/login` and `/signup` are
+  public); client/server Supabase helpers live in `lib/supabase/`.
+- `/api/generate` independently rejects unauthenticated requests with a 401 — the route
+  check is authoritative, the proxy redirect is UX.
+- Email confirmation is disabled by design (Authentication → Sign In / Providers → Email in
+  the Supabase dashboard), so signup logs the user in immediately.
+
 ## Security
 
 - Webhook URL kept server-side (never shipped to the browser).
@@ -79,5 +98,7 @@ n8n webhook  →  returns a binary image  →  streamed back to the browser  →
 ## Deploy on Vercel
 
 1. Import the repo into Vercel and set **Root Directory** to `tryon-app`.
-2. Add the `WEBHOOK_URL` environment variable (and optionally `MAX_UPLOAD_BYTES`).
+2. Add the `WEBHOOK_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` environment variables (and optionally
+   `MAX_UPLOAD_BYTES`).
 3. Deploy — the framework is auto-detected as Next.js (zero config otherwise).

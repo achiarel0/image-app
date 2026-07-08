@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo root (`X:\app frontend`) holds the product specs (`frontend.md`, `frontendprd.txt`, `hatwebsitestyle.png`) plus the actual application in the `tryon-app/` subfolder. The app lives in a subfolder because the root folder name contains a space, which npm rejects as a package name.
 
-The app is just three files of real code under `tryon-app/app/`: `page.tsx` (the entire UI, a client component), `api/generate/route.ts` (the server proxy to the webhook), and `layout.tsx` + `globals.css` (shell/styling). User-facing docs live in `tryon-app/README.md`.
+The core app code lives under `tryon-app/app/`: `page.tsx` (the try-on UI, a client component), `api/generate/route.ts` (the server proxy to the webhook), `login/` + `signup/` + `components/` (Supabase auth UI), and `layout.tsx` + `globals.css` (shell/styling). Supabase client helpers are in `tryon-app/lib/supabase/`, and `tryon-app/proxy.ts` (Next.js 16's renamed middleware) refreshes auth sessions. User-facing docs live in `tryon-app/README.md`.
 
 **All commands below must be run from `tryon-app/`**, not the repo root.
 
@@ -27,7 +27,7 @@ There is no test suite. `npm run build` is the gate for type/lint correctness.
 
 The deploy target is Vercel (the reason Next.js was chosen). When importing, **set the Vercel "Root Directory" to `tryon-app`** so it builds the subfolder, not the repo root.
 
-**Required env var:** `WEBHOOK_URL` (server-only — do **not** add a `NEXT_PUBLIC_` prefix or it leaks to the browser). Set it in the Vercel project settings and in `tryon-app/.env.local` for local dev. See `.env.example`. Optional: `MAX_UPLOAD_BYTES` (default 10 MB).
+**Required env vars:** `WEBHOOK_URL` (server-only — do **not** add a `NEXT_PUBLIC_` prefix or it leaks to the browser), plus `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (these two are intentionally public; the publishable key is safe to expose). Set them in the Vercel project settings and in `tryon-app/.env.local` for local dev. See `.env.example`. Optional: `MAX_UPLOAD_BYTES` (default 10 MB).
 
 ## Architecture
 
@@ -39,6 +39,10 @@ A single-page "AI Virtual Try-On" app: the user uploads two images (a person + a
 - **Validation is enforced server-side** in `route.ts` (MIME allowlist `image/jpeg|png|webp`, per-file size cap, both files required) — this is authoritative. The matching client-side checks in `page.tsx` are UX-only and spoofable. The route returns generic error messages and logs real failures server-side; it also enforces an upstream timeout via `AbortSignal.timeout`.
 - **Binary response handling:** the route streams the raw image back; the client reads it via `response.blob()` → `URL.createObjectURL(blob)` and assigns it to a plain `<img>` `src`. `next/image` is intentionally avoided because it does not support `blob:` URLs.
 - **Object URL lifecycle:** every `createObjectURL` (upload previews and the result) is paired with `revokeObjectURL` when the value is replaced, to avoid leaks. Preserve this when editing upload/result logic.
+
+### Auth (Supabase)
+
+Login is **required**: users sign up at `/signup` with name/email/password and log in at `/login` — the only public paths. Sessions are cookie-based via `@supabase/ssr`; the name lives in auth `user_metadata.full_name` — there are **no custom database tables**. `lib/supabase/client.ts` (browser) and `lib/supabase/server.ts` (server components/routes) create the clients; `proxy.ts` at the app root calls `lib/supabase/proxy.ts`'s `updateSession`, which refreshes tokens on every request and redirects logged-out visitors to `/login` (API paths get a 401 instead). `app/api/generate/route.ts` re-checks auth itself — like file validation, the route-level check is the authoritative one; the proxy redirect is UX. Use `getClaims()`, never trust `getSession()` server-side. Email confirmation is intentionally **disabled** in the Supabase dashboard so signup logs users in immediately. The Supabase URL is added to the CSP `connect-src` in `next.config.ts` from `NEXT_PUBLIC_SUPABASE_URL`.
 
 ### Security headers
 
