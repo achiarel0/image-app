@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  isEntitled,
+  revalidateSubscription,
+  subscriptionIdOf,
+} from "@/lib/payments";
 
 // This route runs on the server only. It proxies the upload to the n8n
 // webhook so the webhook URL stays a server-side secret and never reaches
@@ -48,6 +53,19 @@ export async function POST(request: Request) {
   const { data: claims } = await supabase.auth.getClaims();
   if (!claims?.claims) {
     return fail(401, "Please log in.");
+  }
+
+  // Subscription gate (authoritative — the proxy's 402 is UX only). A lapsed
+  // paid_until claim may just be a stale JWT after a renewal, so give Stripe
+  // one chance to confirm before rejecting.
+  if (!isEntitled(claims.claims.app_metadata)) {
+    const subId = subscriptionIdOf(claims.claims.app_metadata);
+    const stillActive = subId
+      ? await revalidateSubscription(claims.claims.sub, subId)
+      : false;
+    if (!stillActive) {
+      return fail(402, "Payment required.");
+    }
   }
 
   const webhookUrl = process.env.WEBHOOK_URL;

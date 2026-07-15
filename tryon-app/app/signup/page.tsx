@@ -41,7 +41,8 @@ export default function SignUpPage() {
       return;
     }
 
-    router.push("/");
+    // New accounts have no subscription yet — go straight to the paywall.
+    router.push("/pay");
     router.refresh();
   }
 
