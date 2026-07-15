@@ -11,6 +11,10 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=zosseanhliapjqppkaua"
+    },
+    "stripe": {
+      "type": "http",
+      "url": "https://mcp.stripe.com/"
     }
   }
 }
