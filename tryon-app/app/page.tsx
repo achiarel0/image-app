@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import AuthNav from "./components/AuthNav";
+import { GARMENTS, type Garment } from "./garments";
 
 // Posts to our own server route, which proxies to the n8n webhook. The
 // webhook URL is a server-only secret and is never exposed to the browser.
@@ -26,6 +27,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pickingGarmentId, setPickingGarmentId] = useState<string | null>(
+    null,
+  );
 
   const handleSelect = useCallback(
     (slot: Slot, setSlot: (s: Slot) => void, fileList: FileList | null) => {
@@ -47,6 +51,38 @@ export default function Home() {
       setSlot({ file, preview: URL.createObjectURL(file), warning: null });
     },
     [],
+  );
+
+  const handleGarmentPick = useCallback(
+    async (garment: Garment) => {
+      setPickingGarmentId(garment.id);
+      try {
+        const response = await fetch(garment.src);
+        if (!response.ok) throw new Error("fetch failed");
+
+        const blob = await response.blob();
+        if (!ACCEPTED_TYPES.includes(blob.type)) {
+          throw new Error("unexpected type");
+        }
+
+        const filename = garment.src.split("/").pop() ?? "garment.jpg";
+        const file = new File([blob], filename, { type: blob.type });
+
+        if (image2.preview) URL.revokeObjectURL(image2.preview);
+        // Reuse the static asset URL as the preview — it's already on the
+        // page and needs no object URL (so nothing to revoke for it later).
+        setImage2({ file, preview: garment.src, warning: null });
+      } catch {
+        setImage2({
+          file: null,
+          preview: null,
+          warning: "Couldn't load this garment. Please try again.",
+        });
+      } finally {
+        setPickingGarmentId(null);
+      }
+    },
+    [image2.preview],
   );
 
   async function generateImage() {
@@ -110,8 +146,9 @@ export default function Home() {
           </p>
           <h2 className="text-3xl font-semibold">Virtual Try-On</h2>
           <p className="mt-2 max-w-xl text-sm text-neutral-500">
-            Upload a photo of a person and a garment. We&apos;ll blend them into a
-            single generated image.
+            Upload a photo of a person and a garment — or pick one from our
+            collection below. We&apos;ll blend them into a single generated
+            image.
           </p>
         </div>
 
@@ -132,6 +169,55 @@ export default function Home() {
             onSelect={(files) => handleSelect(image2, setImage2, files)}
           />
         </div>
+
+        {/* Shop the look */}
+        <section className="mt-10">
+          <p className="mb-4 text-xs uppercase tracking-[0.2em] text-neutral-400">
+            Or Pick a Garment
+          </p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {GARMENTS.map((garment) => {
+              const isSelected = image2.preview === garment.src;
+              const isPicking = pickingGarmentId === garment.id;
+              return (
+                <button
+                  key={garment.id}
+                  type="button"
+                  onClick={() => handleGarmentPick(garment)}
+                  disabled={isPicking}
+                  aria-pressed={isSelected}
+                  className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white transition ${
+                    isSelected
+                      ? "border-black ring-1 ring-black"
+                      : "border-neutral-200 hover:border-neutral-400"
+                  }`}
+                >
+                  <div className="flex h-40 items-center justify-center bg-neutral-50 p-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={garment.src}
+                      alt={garment.name}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <span className="border-t border-neutral-200 px-3 py-2 text-left text-xs font-medium">
+                    {garment.name}
+                  </span>
+                  {isPicking && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-white/70">
+                      <Spinner dark />
+                    </span>
+                  )}
+                  {isSelected && !isPicking && (
+                    <span className="absolute right-2 top-2 rounded-full bg-black px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-white">
+                      Selected
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         {/* CTA */}
         <div className="mt-8 flex flex-col items-center gap-4">

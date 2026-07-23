@@ -73,6 +73,16 @@ n8n webhook  →  returns a binary image  →  streamed back to the browser  →
   shown in a plain `<img>` (with a download link). `next/image` is intentionally not used —
   it doesn't support `blob:` URLs.
 
+### Shop the Look (garment gallery)
+
+Below the upload row, a "Or Pick a Garment" gallery lets users click a pre-shot garment
+instead of uploading their own. The catalog is `app/garments.ts` — an array of
+`{ id, name, src }` pointing at static images in `public/garments/`. Clicking a card fetches
+that image, wraps it in a `File` (same shape a manual upload produces), and drops it straight
+into the garment slot — it goes through the same client + server validation as an uploaded
+file. Add a garment by dropping an image into `public/garments/` and adding one entry to
+`GARMENTS`; no other wiring is needed.
+
 ## Accounts (Supabase auth)
 
 Login is **required** — powered by [Supabase Auth](https://supabase.com/docs/guides/auth)
@@ -87,8 +97,12 @@ with cookie-based sessions (`@supabase/ssr`):
   public); client/server Supabase helpers live in `lib/supabase/`.
 - `/api/generate` independently rejects unauthenticated requests with a 401 — the route
   check is authoritative, the proxy redirect is UX.
-- Email confirmation is disabled by design (Authentication → Sign In / Providers → Email in
-  the Supabase dashboard), so signup logs the user in immediately.
+- **Email confirmation:** the app was designed for confirmation **off** (signup logs the
+  user in immediately), but the Supabase dashboard currently has it **on**, which leaves
+  signups at "check your email" with no confirm route in the app to handle the link. See
+  `docs/email-confirmation-plan.md` for the plan to support confirmation properly. Until
+  then, turn it off (Authentication → Sign In / Providers → Email → "Confirm email") or
+  confirm users manually via the admin API.
 
 ## Payments ($9.99/month via Stripe)
 
@@ -117,10 +131,22 @@ signup → /pay (paywall) → Stripe Payment Link (client_reference_id = user id
   idempotent (`unique(stripe_session_id)`), so reloading the page is safe.
 - **Recovery:** if the redirect back from Stripe never happens, "Already subscribed? Check
   again" on `/pay` (`/payment/recheck`) finds the completed checkout by
-  `client_reference_id` and finishes activation.
+  `client_reference_id` and finishes activation. This matters in test mode: the payment
+  link's after-completion redirect is fixed to `http://localhost:3210/payment/success`, so
+  paying while no dev server is running (or from a deployed preview) shows "site can't be
+  reached" — the payment still succeeded; recover via `/payment/recheck` or by opening the
+  success URL once the server is up.
 - Self-serve cancelation (optional): enable Stripe's no-code
   [customer portal](https://docs.stripe.com/customer-management/activate-no-code-customer-portal)
   and share its login link; lock-out works regardless, at period end.
+
+### Testing in test mode
+
+The committed setup runs Stripe in **test mode** (`sk_test_` key, `buy.stripe.com/test_...`
+link) — real cards are rejected and no money can move. Subscribe with Stripe's test cards:
+`4242 4242 4242 4242` (success), any future expiry, any CVC, any billing details. Useful
+failure cards: `4000 0000 0000 0002` (decline), `4000 0025 0000 3155` (3-D Secure).
+Deploying with the same test-mode env values keeps the deployed site test-only too.
 
 ### Going live (currently test mode)
 
